@@ -1,3 +1,6 @@
+# Version 3.0.0
+Release date: unreleased
+
 #Version 2.9.0
 Release date: unreleased
 
