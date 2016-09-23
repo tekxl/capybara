@@ -8,7 +8,6 @@ Capybara::SpecHelper.spec '#find_field' do
     expect(@session.find_field('Dog').value).to eq('dog')
     expect(@session.find_field('form_description').text).to eq('Descriptive text goes here')
     expect(@session.find_field('Region')[:name]).to eq('form[region]')
-
   end
 
   context "aria_label attribute with Capybara.enable_aria_label" do
@@ -106,5 +105,10 @@ Capybara::SpecHelper.spec '#find_field' do
     it 'should use options to find the field' do
       expect(@session.find_field(with: 'dog')['id']).to eq "form_pets_dog"
     end
+  end
+
+  it "should warn if passed a block" do
+    expect_any_instance_of(Kernel).to receive(:warn).with("'find_field' doesn't take a block - use 'find' if you need to pass a block filter")
+    @session.find_field('Dog'){ |node| true }
   end
 end

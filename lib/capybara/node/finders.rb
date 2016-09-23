@@ -28,8 +28,8 @@ module Capybara
       # @return [Capybara::Node::Element]      The found element
       # @raise  [Capybara::ElementNotFound]    If the element can't be found before time expires
       #
-      def find(*args)
-        query = Capybara::Queries::SelectorQuery.new(*args)
+      def find(*args, &filter_block)
+        query = Capybara::Queries::SelectorQuery.new(*args, &filter_block)
         synchronize(query.wait) do
           if (query.match == :smart or query.match == :prefer_exact) and query.supports_exact?
             result = query.resolve_for(self, true)
@@ -202,8 +202,8 @@ module Capybara
       #   @option options [Integer] wait (Capybara.default_max_wait_time)  The time to wait for element count expectations to become true
       # @return [Capybara::Result]                   A collection of found elements
       #
-      def all(*args)
-        query = Capybara::Queries::SelectorQuery.new(*args)
+      def all(*args, &filter_block)
+        query = Capybara::Queries::SelectorQuery.new(*args, &filter_block)
         synchronize(query.wait) do
           result = query.resolve_for(self)
           raise Capybara::ExpectationNotMet, result.failure_message unless result.matches_count?
@@ -227,15 +227,27 @@ module Capybara
       #   @param [Hash] options                      Additional options; see {#all}
       # @return [Capybara::Node::Element]            The found element or nil
       #
-      def first(*args)
+      def first(*args, &filter_block)
         if Capybara.wait_on_first_by_default
           options = if args.last.is_a?(Hash) then args.pop.dup else {} end
           args.push({minimum: 1}.merge(options))
         end
-        all(*args).first
+        all(*args, &filter_block).first
       rescue Capybara::ExpectationNotMet
         nil
       end
+
+    private
+
+      def self.block_warn(name, replacement)
+        original_method = instance_method(name)
+        define_method(name) do |*args, &block|
+          warn "'#{__method__}' doesn't take a block - use '#{replacement}' if you need to pass a block filter" if block
+          original_method.bind(self).call(*args)
+        end
+      end
+
+      %w(find_field find_link find_button find_by_id).each {|n| block_warn(n, 'find') }
     end
   end
 end

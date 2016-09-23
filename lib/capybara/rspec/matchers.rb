@@ -16,8 +16,9 @@ module Capybara
     class HaveSelector < Matcher
       attr_reader :failure_message, :failure_message_when_negated
 
-      def initialize(*args)
+      def initialize(*args, &filter_block)
         @args = args
+        @filter_block = filter_block
       end
 
       def matches?(actual)
@@ -39,7 +40,7 @@ module Capybara
       end
 
       def query
-        @query ||= Capybara::Queries::SelectorQuery.new(*@args)
+        @query ||= Capybara::Queries::SelectorQuery.new(*@args, &@filter_block)
       end
 
       # RSpec 2 compatibility:
@@ -221,8 +222,8 @@ module Capybara
       alias_method :failure_message_for_should_not, :failure_message_when_negated
     end
 
-    def have_selector(*args)
-      HaveSelector.new(*args)
+    def have_selector(*args, &filter_block)
+      HaveSelector.new(*args, &filter_block)
     end
 
     def match_selector(*args)
@@ -298,6 +299,20 @@ module Capybara
     # @option options [Numeric] :wait (Capybara.default_max_wait_time) Maximum wait time
     def become_closed(options = {})
       BecomeClosed.new(options)
+    end
+
+  private
+
+    def self.block_warn(name, replacement)
+      original_method = instance_method(name)
+      define_method(name) do |*args, &block|
+        warn "'#{__method__}' doesn't take a block - use '#{replacement}' if you need to pass a block filter" if block
+        original_method.bind(self).call(*args)
+      end
+    end
+
+    %w(xpath css link button field checked_field unchecked_field select table).each do |n|
+      block_warn("have_#{n}", 'have_selector')
     end
   end
 end

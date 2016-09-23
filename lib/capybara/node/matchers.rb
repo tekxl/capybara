@@ -36,8 +36,8 @@ module Capybara
       # @option args [Range]   :between (nil)   Range of times that should contain number of times text occurs
       # @return [Boolean]                       If the expression exists
       #
-      def has_selector?(*args)
-        assert_selector(*args)
+      def has_selector?(*args, &filter_block)
+        assert_selector(*args, &filter_block)
       rescue Capybara::ExpectationNotMet
         return false
       end
@@ -50,8 +50,8 @@ module Capybara
       # @param (see Capybara::Node::Finders#has_selector?)
       # @return [Boolean]
       #
-      def has_no_selector?(*args)
-        assert_no_selector(*args)
+      def has_no_selector?(*args, &filter_block)
+        assert_no_selector(*args, &filter_block)
       rescue Capybara::ExpectationNotMet
         return false
       end
@@ -160,8 +160,8 @@ module Capybara
       # @option options [Integer] :count (nil)    Number of times the expression should occur
       # @raise [Capybara::ExpectationNotMet]      If the selector does not exist
       #
-      def assert_selector(*args)
-        query = Capybara::Queries::SelectorQuery.new(*args)
+      def assert_selector(*args, &filter_block)
+        query = Capybara::Queries::SelectorQuery.new(*args, &filter_block)
         synchronize(query.wait) do
           result = query.resolve_for(self)
           unless result.matches_count? && ((!result.empty?) || query.expects_none?)
@@ -187,8 +187,8 @@ module Capybara
       # @param (see Capybara::Node::Finders#assert_selector)
       # @raise [Capybara::ExpectationNotMet]      If the selector exists
       #
-      def assert_no_selector(*args)
-        query = Capybara::Queries::SelectorQuery.new(*args)
+      def assert_no_selector(*args, &filter_block)
+        query = Capybara::Queries::SelectorQuery.new(*args, &filter_block)
         synchronize(query.wait) do
           result = query.resolve_for(self)
           if result.matches_count? && ((!result.empty?) || query.expects_none?)
@@ -628,6 +628,21 @@ module Capybara
 
       def ==(other)
         self.eql?(other) || (other.respond_to?(:base) && base == other.base)
+      end
+
+    private
+
+      def self.block_warn(name, replacement)
+        original_method = instance_method(name)
+        define_method(name) do |*args, &block|
+          warn "'#{__method__}' doesn't take a block - use '#{replacement}' if you need to pass a block filter" if block
+          original_method.bind(self).call(*args)
+        end
+      end
+
+      %w(xpath css link button field checked_field unchecked_field select table).each do |n|
+        block_warn("has_#{n}?", 'has_selector?')
+        block_warn("has_no_#{n}?", 'has_no_selector?')
       end
     end
   end
